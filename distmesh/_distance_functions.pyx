@@ -14,8 +14,16 @@
 # Cython imports
 #-----------------------------------------------------------------------------
 
-cimport numpy as np
-np.import_array()
+cimport numpy as cnp
+import numpy as np
+
+# Define NumPy's API version to avoid compatibility issues
+cdef extern from "numpy/arrayobject.h":
+    void import_array()
+
+# Initialize NumPy
+import_array()
+
 
 cdef extern from "src/distance_functions.c":
     double _dellipse "dellipse" (double x0, double y0, double a, double b)
@@ -28,7 +36,7 @@ cdef extern from "src/distance_functions.c":
 # Functions
 #-----------------------------------------------------------------------------
 
-def dellipse(p, axes):
+def dellipse(cnp.ndarray[cnp.float64_t, ndim=2] p, cnp.ndarray[cnp.float64_t, ndim=1] axes):
     """
     d = dellipse(p, axes)
 
@@ -44,23 +52,21 @@ def dellipse(p, axes):
         distance from each point to the ellipse
     """
     cdef double a, b
-    cdef np.npy_intp n, i
-
-    a, b = axes
-
-    cdef np.ndarray[np.double_t, ndim=2] P = \
-         np.PyArray_FromObject(p, np.NPY_DOUBLE, 2, 2)
-    n = P.shape[0]
-    assert P.shape[1] == 2, "array should have shape (np, 2)"
-
-    cdef np.ndarray[np.double_t, ndim=1] D = \
-         np.PyArray_SimpleNew(1, &n, np.NPY_DOUBLE)
-
+    cdef Py_ssize_t n, i
+    
+    a, b = axes[0], axes[1]
+    
+    n = p.shape[0]
+    assert p.shape[1] == 2, "array should have shape (np, 2)"
+    
+    cdef cnp.ndarray[cnp.float64_t, ndim=1] D = np.empty(n, dtype=np.float64)
+    
     for i in range(n):
-        D[i] = _dellipse(P[i,0], P[i,1], a, b)
+        D[i] = _dellipse(p[i, 0], p[i, 1], a, b)
+    
     return D
 
-def dellipsoid(p, axes):
+def dellipsoid(cnp.ndarray[cnp.float64_t, ndim=2] p, cnp.ndarray[cnp.float64_t, ndim=1] axes):
     """
     d = dellipsoid(p, axes)
 
@@ -76,23 +82,21 @@ def dellipsoid(p, axes):
         distance from each point to the ellipsoid
     """
     cdef double a, b, c
-    cdef np.npy_intp n, i
-
-    a, b, c = axes
-
-    cdef np.ndarray[np.double_t, ndim=2] P = \
-         np.PyArray_FromObject(p, np.NPY_DOUBLE, 2, 2)
-    n = P.shape[0]
-    assert P.shape[1] == 3, "array should have shape (np, 3)"
-
-    cdef np.ndarray[np.double_t, ndim=1] D = \
-         np.PyArray_SimpleNew(1, &n, np.NPY_DOUBLE)
-
+    cdef Py_ssize_t n, i
+    
+    a, b, c = axes[0], axes[1], axes[2]
+    
+    n = p.shape[0]
+    assert p.shape[1] == 3, "array should have shape (np, 3)"
+    
+    cdef cnp.ndarray[cnp.float64_t, ndim=1] D = np.empty(n, dtype=np.float64)
+    
     for i in range(n):
-        D[i] = _dellipsoid(P[i,0], P[i,1], P[i,2], a, b, c)
+        D[i] = _dellipsoid(p[i, 0], p[i, 1], p[i, 2], a, b, c)
+    
     return D
 
-def dsegment(p, v):
+def dsegment(cnp.ndarray[cnp.float64_t, ndim=2] p, cnp.ndarray[cnp.float64_t, ndim=2] v):
     """
     d = dsegment(p, v)
 
@@ -109,31 +113,22 @@ def dsegment(p, v):
     ds : array, shape (np, nv-1)
         distance from each point to each edge
     """
-    cdef double p1x,p1y, p2x,p2y
-    cdef np.npy_intp n, nv1, i, iv
-
-    cdef np.ndarray[np.double_t, ndim=2] P = \
-         np.PyArray_FromObject(p, np.NPY_DOUBLE, 2, 2)
-    n = P.shape[0]
-    assert P.shape[1] == 2, "array should have shape (np, 2)"
-
-    cdef np.ndarray[np.double_t, ndim=2] V = \
-         np.PyArray_FromObject(v, np.NPY_DOUBLE, 2, 2)
-    nv1 = V.shape[0]-1
-    assert V.shape[1] == 2, "array should have shape (nv, 2)"
-
-    cdef np.npy_intp DS_dims[2]
-    DS_dims[0] = n; DS_dims[1] = nv1
-
-    cdef np.ndarray[np.double_t, ndim=2] DS = \
-         np.PyArray_SimpleNew(2, DS_dims, np.NPY_DOUBLE)
-
+    cdef double p1x, p1y, p2x, p2y
+    cdef Py_ssize_t n, nv1, i, iv
+    
+    n = p.shape[0]
+    assert p.shape[1] == 2, "array should have shape (np, 2)"
+    
+    nv1 = v.shape[0] - 1
+    assert v.shape[1] == 2, "array should have shape (nv, 2)"
+    
+    cdef cnp.ndarray[cnp.float64_t, ndim=2] DS = np.empty((n, nv1), dtype=np.float64)
+    
     for iv in range(nv1):
-        p1x = V[iv,0]
-        p1y = V[iv,1]
-        p2x = V[iv+1,0]
-        p2y = V[iv+1,1]
-
+        p1x, p1y = v[iv, 0], v[iv, 1]
+        p2x, p2y = v[iv + 1, 0], v[iv + 1, 1]
+        
         for i in range(n):
-            DS[i,iv] = _dsegment(P[i,0], P[i,1], p1x, p1y, p2x, p2y)
+            DS[i, iv] = _dsegment(p[i, 0], p[i, 1], p1x, p1y, p2x, p2y)
+    
     return DS
