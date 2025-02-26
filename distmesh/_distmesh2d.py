@@ -16,6 +16,7 @@
 
 from __future__ import division
 
+import scipy
 import numpy as np
 import scipy.spatial as spspatial
 
@@ -109,7 +110,7 @@ def distmesh2d(fd, fh, h0, bbox, pfix=None, fig='gcf', dptol=.001, ttol=.1,
         fig = plt.gcf()
 
     geps = geps_multiplier * h0
-    deps=np.sqrt(np.finfo(np.double).eps)*h0;
+    deps=np.sqrt(np.finfo(np.double).eps)*h0
 
     # Extract bounding box
     xmin, ymin, xmax, ymax = bbox
@@ -157,7 +158,10 @@ def distmesh2d(fd, fh, h0, bbox, pfix=None, fig='gcf', dptol=.001, ttol=.1,
         dist = lambda p1, p2: np.sqrt(((p1-p2)**2).sum(1))
         if (dist(p, pold)/h0).max() > ttol:          # Any large movement?
             pold = p.copy()                          # Save current positions
-            t = spspatial.Delaunay(p).vertices       # List of triangles
+            if scipy.__version__ < '1.11.0':
+                t = spspatial.Delaunay(p).vertices   # List of triangles
+            else:
+                t = spspatial.Delaunay(p).simplices  # List of triangles
             pmid = p[t].sum(1)/3                     # Compute centroids
             t = t[fd(pmid) < -geps]                  # Keep interior triangles
             # 4. Describe each bar by a unique pair of nodes
