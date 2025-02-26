@@ -128,6 +128,8 @@ def unique_rows(A, return_index=False, return_inverse=False):
                         return_inverse=True)
 
     B = B.view(orig_dtype).reshape((-1, ncolumns), order='C')
+    # Flatten J to remove the extra dimension
+    J = J.flatten()
 
     # There must be a better way to do this:
     if (return_index):
